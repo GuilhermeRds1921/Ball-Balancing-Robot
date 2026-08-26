@@ -108,12 +108,17 @@ Sugestões para evolução:
 
 ## Referências
 
-- Conceitos de controle em malha fechada
-- Conceitos de visão computacional aplicada à robótica
-- Projetos didáticos de ball balancing robot
+- Projetos didáticos de ball balancing robot](https://www.instructables.com/Ball-Balancing-Robot/) By aaedmusa
 
 ## Organização
 
 **Robotnik - DAINF-PB**  
 Departamento Acadêmico de Informática - UTFPR, Campus Pato Branco.
+
+Orientador: Vinicius Pegorini
+- Aluno: Anjelo
+- Aluno: Davi
+- Aluno: Diogo 
+- Aluno: Guilherme Rodrigues dos Santos
+- Aluno: Renan
 
