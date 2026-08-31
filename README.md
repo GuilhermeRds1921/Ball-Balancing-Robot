@@ -100,20 +100,6 @@ O dashboard pode reunir recursos como:
 - Sistemas de controle
 - IoT
 
-## Participacao de Guilherme Rodrigues
-
-Minha participacao no projeto envolveu a construcao da solucao como um sistema integrado, conectando hardware, software embarcado, controle e interface web.
-
-Principais frentes de participacao:
-
-- estudo da arquitetura geral da mesa robotica;
-- integracao entre camera, processamento e atuadores;
-- desenvolvimento e testes da logica de controle;
-- organizacao do backend para comunicar a interface com o sistema fisico;
-- criacao de interface web/dashboard para controle e acompanhamento;
-- testes em bancada, ajustes e validacao do comportamento da mesa;
-- documentacao tecnica do projeto para uso no portfolio e no GitHub.
-
 ## Como rodar
 
 O repositorio ainda esta em organizacao e nao contem, neste momento, todos os arquivos necessarios para executar o sistema completo diretamente.
