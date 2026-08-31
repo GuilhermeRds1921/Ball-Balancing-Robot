@@ -77,27 +77,52 @@ O frontend e uma interface web em React para:
 - ajustar parametros de controle;
 - enviar comandos para a rotina de equilibrio.
 
-### Execucao
+### Execucao em rede local do Raspberry Pi
+
+A arquitetura recomendada e que o Raspberry Pi 4 crie sua propria rede Wi‑Fi e sirva tanto o backend quanto o frontend nessa mesma rede local.
 
 ```bash
 cd frontend
 npm install
 cp .env.example .env
-npm start
 ```
 
-O arquivo `.env` deve apontar para a URL do backend, por exemplo:
+No `.env`, configure a API para o Raspberry:
 
 ```env
-REACT_APP_API_URL=http://localhost:8000
+REACT_APP_API_URL=http://192.168.50.1:8000
 ```
 
-Quando o backend estiver rodando em outra maquina, troque esse valor para o IP ou hostname correto.
+Depois rode o frontend no modo acessivel pela rede:
+
+```bash
+npm start -- --host 0.0.0.0 --port 3000
+```
+
+Com isso, qualquer celular ou notebook conectado ao Wi‑Fi do Raspberry pode abrir o frontend em:
+
+```text
+http://192.168.50.1:3000
+```
+
+## Rede do Raspberry Pi
+
+O projeto foi pensado para funcionar com o proprio Raspberry Pi 4 atuando como roteador Wi‑Fi local. Dessa forma, o backend e o frontend ficam na mesma rede e podem ser acessados por celular ou notebook sem depender da internet ou de um roteador externo.
+
+### Rede sugerida
+
+- SSID: `BallBalancingRobot`
+- IP do Raspberry: `192.168.50.1`
+- Backend: `http://192.168.50.1:8000`
+- Frontend: `http://192.168.50.1:3000`
+
+A configuracao detalhada esta em [docs/networking.md](docs/networking.md).
 
 ## Documentacao
 
 - [Arquitetura do sistema](docs/architecture.md)
 - [Operacao e testes](docs/operation.md)
+- [Rede Wi‑Fi do Raspberry Pi](docs/networking.md)
 
 ## Tecnologias
 
