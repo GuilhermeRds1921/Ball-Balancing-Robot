@@ -1,0 +1,1045 @@
+import { useState, useEffect } from "react";
+import bg from "./assets/batian.jpeg";
+
+const DEFAULT_API = "http://10.112.27.145:8000";
+
+const DEFAULT_TELEMETRY = {
+  error_x: 0,
+  error_y: 0,
+  kp: 0.0006,
+  kd: 0.56,
+  servo_output_scale: 0.35,
+  detected: false,
+  control_enabled: false,
+  servo_ready: false,
+  servo_error: null,
+  kinematics_valid: false,
+  kinematics_error: null,
+  max_abs_theta: 0,
+  fps: 0,
+  routine_enabled: false,
+  routine_key: "none",
+  routine_name: "Nenhuma",
+  routine_active_factor: 0,
+};
+
+function App() {
+  const [api] = useState(DEFAULT_API);
+
+  const [kp, setKp] = useState(0.0006);
+  const [kd, setKd] = useState(0.56);
+  const [scale, setScale] = useState(0.35);
+
+  const [telemetry, setTelemetry] = useState(DEFAULT_TELEMETRY);
+  const [connected, setConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState("");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`${api}/telemetry`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+
+        setTelemetry({
+          ...DEFAULT_TELEMETRY,
+          ...data,
+        });
+
+        setConnected(true);
+      } catch (err) {
+        console.log(err);
+        setConnected(false);
+      }
+    };
+
+    fetchData();
+
+    const interval = setInterval(fetchData, 400);
+
+    return () => clearInterval(interval);
+  }, [api]);
+
+  const postJson = async (path, body = null) => {
+    try {
+      const options = {
+        method: "POST",
+      };
+
+      if (body !== null) {
+        options.headers = {
+          "Content-Type": "application/json",
+        };
+
+        options.body = JSON.stringify(body);
+      }
+
+      const res = await fetch(`${api}${path}`, options);
+      const data = await res.json();
+
+      setLastMessage(data.msg || JSON.stringify(data));
+      return data;
+    } catch (err) {
+      console.log(err);
+      setLastMessage("Erro de comunicação com o Raspberry.");
+      return null;
+    }
+  };
+
+  const sendPid = async (nextKp = kp, nextKd = kd) => {
+    await postJson("/pid", {
+      kp: Number(nextKp),
+      ki: 0,
+      kd: Number(nextKd),
+    });
+  };
+
+  const sendScale = async (nextScale = scale) => {
+    await postJson("/control/scale", {
+      scale: Number(nextScale),
+    });
+  };
+
+  const startBalancar = async () => {
+    await postJson("/routine/bambole", {
+      routine: "bambole",
+    });
+  };
+
+  const errorX = Number(telemetry.error_x || 0);
+  const errorY = Number(telemetry.error_y || 0);
+
+  // Erro zero = centro visual da plataforma.
+  const ballLeft = `${Math.max(0, Math.min(100, 50 - (errorX / 320) * 50))}%`;
+  const ballTop = `${Math.max(0, Math.min(100, 50 + (errorY / 240) * 50))}%`;
+
+  const routinePercent = Math.round(
+    Number(telemetry.routine_active_factor || 0) * 100
+  );
+
+  const systemLabel = telemetry.control_enabled
+    ? telemetry.routine_enabled
+      ? `Balançando (${routinePercent}%)`
+      : "Controle ativo"
+    : connected
+    ? "Pronto"
+    : "Offline";
+
+  return (
+    <div className="page">
+      <style>{styles}</style>
+
+      <header className="header shell">
+        <div className="brand">
+          <div className="brand-icon">●</div>
+
+          <div>
+            <p className="eyebrow">Equilibrator</p>
+            <h1>Equilibrator 2000</h1>
+          </div>
+        </div>
+
+        <div className={`connection-pill ${connected ? "online" : "offline"}`}>
+          <span className="status-dot" />
+          {connected ? "Conexão online" : "Conexão offline"}
+        </div>
+      </header>
+
+      <main className="layout">
+        <section className="control-panel shell">
+          <div className="section-title">
+            <div className="section-badge">⚙</div>
+
+            <div>
+              <h2>Controle</h2>
+              <strong className="current-mode">{systemLabel}</strong>
+            </div>
+          </div>
+
+          <div className="command-grid">
+            <button
+              className="button light-button"
+              onClick={() => postJson("/control/home")}
+            >
+              <span className="button-icon">⌂</span>
+              Home
+            </button>
+
+            <button
+              className="button wood-button"
+              onClick={() => postJson("/control/enable")}
+            >
+              <span className="button-icon">▶</span>
+              Ligar
+            </button>
+
+            <button
+              className="button tan-button"
+              onClick={() => postJson("/control/disable")}
+            >
+              <span className="button-icon">⏻</span>
+              Desligar
+            </button>
+
+            <button
+              className="button redwood-button"
+              onClick={() => postJson("/control/stop_pwm")}
+            >
+              <span className="button-icon">■</span>
+              Stop PWM
+            </button>
+
+            <button
+              className="button restart-button"
+              onClick={() => postJson("/system/restart")}
+            >
+              <span className="button-icon">↻</span>
+              Reiniciar backend
+            </button>
+
+            <button
+              className="button emergency-button"
+              onClick={() => postJson("/control/stop_pwm")}
+            >
+              <span className="button-icon">⚠</span>
+              Emergência
+            </button>
+          </div>
+
+          <div className="divider" />
+
+          <div className="routine-box">
+            <div className="small-title">
+              <span className="section-badge small">▣</span>
+              <h3>Rotina</h3>
+            </div>
+
+            <div className="routine-grid">
+              <button
+                className="button balance-button"
+                onClick={startBalancar}
+              >
+                Balançar
+              </button>
+
+              <button
+                className="button stop-routine-button"
+                onClick={() => postJson("/routine/stop")}
+              >
+                Parar rotina
+              </button>
+            </div>
+          </div>
+
+          <div className="divider" />
+
+          <div className="messages">
+            <div className="small-title">
+              <span className="section-badge small">▤</span>
+              <h3>Mensagens</h3>
+            </div>
+
+            <div className="message-box">
+              {lastMessage || "Sistema aguardando comando."}
+            </div>
+          </div>
+        </section>
+
+        <section className="platform-panel shell">
+          <div className="section-title platform-title">
+            <div className="section-badge">□</div>
+            <h2>Plataforma</h2>
+          </div>
+
+          <div className="platform-card">
+            <div className="platform">
+              <div className="platform-grid" />
+              <div className="platform-axis-x" />
+              <div className="platform-axis-y" />
+              <div className="platform-center" />
+              <div
+                className={`ball ${telemetry.detected ? "" : "lost"}`}
+                style={{
+                  left: ballLeft,
+                  top: ballTop,
+                }}
+              />
+            </div>
+          </div>
+        </section>
+
+        <aside className="right-panel">
+          <section className="status-panel shell">
+            <div className="section-title compact">
+              <div className="section-badge">◈</div>
+              <h2>Status</h2>
+            </div>
+
+            <div className="status-list">
+              <StatusItem
+                label="Conexão"
+                active={connected}
+                activeText="Online"
+                inactiveText="Offline"
+              />
+
+              <StatusItem
+                label="Bola"
+                active={telemetry.detected}
+                activeText="Detectada"
+                inactiveText="Não detectada"
+              />
+
+              <StatusItem
+                label="Controle"
+                active={telemetry.control_enabled}
+                activeText="Ativo"
+                inactiveText="Desligado"
+                neutral={!telemetry.control_enabled}
+              />
+
+              <StatusItem
+                label="Rotina"
+                active={telemetry.routine_enabled}
+                activeText="Balançar"
+                inactiveText="Parada"
+                neutral={!telemetry.routine_enabled}
+              />
+            </div>
+          </section>
+
+          <section className="adjust-panel shell">
+            <div className="section-title compact">
+              <div className="section-badge">☰</div>
+              <h2>Ajustes</h2>
+            </div>
+
+            <Slider
+              label="Kp"
+              value={kp}
+              min={0}
+              max={0.003}
+              step={0.0001}
+              decimals={5}
+              onChange={(value) => {
+                setKp(value);
+                sendPid(value, kd);
+              }}
+            />
+
+            <Slider
+              label="Kd"
+              value={kd}
+              min={0}
+              max={1.5}
+              step={0.01}
+              decimals={2}
+              onChange={(value) => {
+                setKd(value);
+                sendPid(kp, value);
+              }}
+            />
+
+            <Slider
+              label="Força"
+              value={scale}
+              min={0}
+              max={1}
+              step={0.05}
+              decimals={2}
+              onChange={(value) => {
+                setScale(value);
+                sendScale(value);
+              }}
+            />
+          </section>
+
+          {(telemetry.servo_error || telemetry.kinematics_error) && (
+            <div className="error-box shell">
+              {telemetry.servo_error && (
+                <p>
+                  <strong>Servo:</strong> {telemetry.servo_error}
+                </p>
+              )}
+
+              {telemetry.kinematics_error && (
+                <p>
+                  <strong>Cinemática:</strong> {telemetry.kinematics_error}
+                </p>
+              )}
+            </div>
+          )}
+        </aside>
+      </main>
+    </div>
+  );
+}
+
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  decimals,
+  onChange,
+}) {
+  return (
+    <div className="slider-group">
+      <div className="slider-label">
+        <span>{label}</span>
+        <strong>{Number(value).toFixed(decimals)}</strong>
+      </div>
+
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </div>
+  );
+}
+
+function StatusItem({
+  label,
+  active,
+  activeText,
+  inactiveText,
+  neutral = false,
+}) {
+  return (
+    <div className="status-item">
+      <div className="status-text">
+        <span>{label}</span>
+        <strong>{active ? activeText : inactiveText}</strong>
+      </div>
+
+      <div
+        className={`small-dot ${
+          active ? "good" : neutral ? "neutral-dot" : "bad"
+        }`}
+      />
+    </div>
+  );
+}
+
+const styles = `
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  .page {
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #f4ead8;
+    padding: clamp(12px, 1.6vw, 20px);
+    background:
+      radial-gradient(circle at 30% 15%, rgba(180, 116, 54, 0.18), transparent 32%),
+      radial-gradient(circle at 70% 10%, rgba(239, 190, 128, 0.12), transparent 25%),
+      linear-gradient(rgba(17, 13, 10, 0.72), rgba(17, 13, 10, 0.78)),
+      url(${bg});
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
+
+  .shell {
+    background:
+      linear-gradient(145deg, rgba(46, 34, 24, 0.95), rgba(24, 20, 16, 0.95)),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255,255,255,0.025) 0px,
+        rgba(255,255,255,0.025) 1px,
+        transparent 1px,
+        transparent 9px
+      );
+    border: 1px solid rgba(190, 128, 65, 0.45);
+    border-radius: 22px;
+    box-shadow:
+      0 18px 45px rgba(0,0,0,0.34),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+  }
+
+  .header {
+    height: 82px;
+    padding: 15px 20px;
+    margin-bottom: clamp(10px, 1.4vw, 16px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .brand-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    color: #f5ddb8;
+    background:
+      linear-gradient(135deg, #8f5c2c, #d8a76f);
+    box-shadow:
+      0 8px 20px rgba(0,0,0,0.25),
+      inset 0 1px 0 rgba(255,255,255,0.22);
+  }
+
+  .eyebrow {
+    color: #c99052;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    font-size: 11px;
+    margin: 0 0 5px;
+    font-weight: 800;
+  }
+
+  h1 {
+    font-size: clamp(28px, 3.2vw, 42px);
+    line-height: 1;
+    margin: 0;
+    color: #fff0d6;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: clamp(20px, 2vw, 25px);
+    color: #fff0d6;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #fff0d6;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .connection-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-weight: 800;
+    background: rgba(0,0,0,0.24);
+    border: 1px solid rgba(190,128,65,0.38);
+    white-space: nowrap;
+  }
+
+  .status-dot,
+  .small-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+  }
+
+  .online .status-dot,
+  .good {
+    background: #e8ac55;
+    box-shadow: 0 0 14px rgba(232, 172, 85, 0.95);
+  }
+
+  .offline .status-dot,
+  .bad {
+    background: #b7583e;
+    box-shadow: 0 0 14px rgba(183, 88, 62, 0.95);
+  }
+
+  .neutral-dot {
+    background: #9d8d78;
+    box-shadow: 0 0 10px rgba(157, 141, 120, 0.7);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns:
+      minmax(330px, 390px)
+      minmax(410px, 1fr)
+      minmax(240px, 285px);
+    gap: clamp(10px, 1.2vw, 16px);
+    align-items: stretch;
+  }
+
+  .control-panel,
+  .platform-panel,
+  .status-panel,
+  .adjust-panel {
+    padding: clamp(16px, 1.8vw, 22px);
+  }
+
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .section-title,
+  .small-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title {
+    margin-bottom: 18px;
+  }
+
+  .section-title.compact {
+    margin-bottom: 12px;
+  }
+
+  .platform-title {
+    justify-content: center;
+  }
+
+  .section-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    color: #f7e6ca;
+    background:
+      linear-gradient(135deg, #7b4b25, #c58a4d);
+    box-shadow:
+      0 8px 18px rgba(0,0,0,0.25),
+      inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+
+  .section-badge.small {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+
+  .current-mode {
+    display: inline-block;
+    margin-top: 7px;
+    color: #e7a85c;
+    font-size: 16px;
+  }
+
+  .button {
+    border: none;
+    border-radius: 16px;
+    min-height: 70px;
+    padding: 13px 15px;
+    color: #fff0d6;
+    font-weight: 900;
+    cursor: pointer;
+    font-size: 15px;
+    box-shadow:
+      0 12px 22px rgba(0,0,0,0.30),
+      inset 0 1px 0 rgba(255,255,255,0.20);
+    transition: transform 120ms ease, filter 120ms ease;
+  }
+
+  .button:hover {
+    filter: brightness(1.08);
+  }
+
+  .button:active {
+    transform: translateY(1px);
+  }
+
+  .button-icon {
+    display: block;
+    font-size: 22px;
+    margin-bottom: 7px;
+  }
+
+  .command-grid,
+  .routine-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .light-button {
+    color: #3b2a1a;
+    background:
+      linear-gradient(145deg, #ffe9c2, #d6b47d);
+  }
+
+  .wood-button {
+    background:
+      linear-gradient(145deg, #b66d31, #74401f);
+  }
+
+  .tan-button {
+    background:
+      linear-gradient(145deg, #c89657, #745231);
+  }
+
+  .redwood-button {
+    background:
+      linear-gradient(145deg, #b95b3e, #673025);
+  }
+
+  .restart-button {
+    grid-column: 1 / -1;
+    min-height: 58px;
+    background:
+      linear-gradient(145deg, #6e4730, #33251f);
+  }
+
+  .restart-button .button-icon {
+    display: inline-block;
+    margin: 0 8px 0 0;
+    vertical-align: middle;
+  }
+
+  .emergency-button {
+    grid-column: 1 / -1;
+    min-height: 64px;
+    font-size: 18px;
+    text-transform: uppercase;
+    background:
+      linear-gradient(145deg, #d0523e, #7c1f18);
+    box-shadow:
+      0 0 24px rgba(185, 50, 35, 0.34),
+      0 12px 22px rgba(0,0,0,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.20);
+  }
+
+  .emergency-button .button-icon {
+    display: inline-block;
+    margin: 0 10px 0 0;
+    vertical-align: middle;
+  }
+
+  .divider {
+    height: 1px;
+    margin: 22px 0;
+    background: linear-gradient(90deg, transparent, rgba(210,158,95,0.45), transparent);
+  }
+
+  .routine-box,
+  .messages {
+    width: 100%;
+  }
+
+  .routine-grid {
+    margin-top: 14px;
+  }
+
+  .balance-button {
+    min-height: 58px;
+    color: #3b2a1a;
+    background:
+      linear-gradient(145deg, #e2b56e, #a46b35);
+  }
+
+  .stop-routine-button {
+    min-height: 58px;
+    background:
+      linear-gradient(145deg, #5c4533, #2c2119);
+  }
+
+  .message-box,
+  .error-box {
+    margin-top: 14px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(190,128,65,0.36);
+    border-radius: 15px;
+    padding: 14px;
+    color: #e8d6bd;
+    min-height: 54px;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .error-box {
+    margin-top: 0;
+    color: #ffb9a9;
+  }
+
+  .error-box p {
+    margin: 6px 0;
+  }
+
+  .platform-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .platform-card {
+    width: 100%;
+    flex: 1;
+    min-height: 470px;
+    border-radius: 22px;
+    padding: clamp(18px, 2vw, 28px);
+    background:
+      linear-gradient(145deg, rgba(37, 29, 23, 0.96), rgba(20, 17, 14, 0.96));
+    border: 1px solid rgba(190,128,65,0.38);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.05),
+      0 16px 35px rgba(0,0,0,0.22);
+  }
+
+  .platform {
+    width: 100%;
+    height: 100%;
+    min-height: 430px;
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at center, rgba(217, 156, 91, 0.13), transparent 32%),
+      linear-gradient(135deg, rgba(72, 53, 38, 0.75), rgba(20, 17, 14, 0.86));
+    border: 1px solid rgba(222, 169, 104, 0.42);
+    box-shadow:
+      inset 0 0 36px rgba(0,0,0,0.68),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .platform-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(202, 151, 90, 0.14) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(202, 151, 90, 0.14) 1px, transparent 1px);
+    background-size: 9.09% 9.09%;
+  }
+
+  .platform-axis-x,
+  .platform-axis-y {
+    position: absolute;
+    background: rgba(230, 169, 98, 0.55);
+    box-shadow: 0 0 10px rgba(230, 169, 98, 0.22);
+  }
+
+  .platform-axis-x {
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+  }
+
+  .platform-axis-y {
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+  }
+
+  .platform-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #f2c286;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 22px rgba(242, 194, 134, 0.95);
+    z-index: 2;
+  }
+
+  .ball {
+    position: absolute;
+    width: clamp(24px, 3.4vw, 34px);
+    height: clamp(24px, 3.4vw, 34px);
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 25%, #ffb6a5, #e93225 45%, #7c130d 100%);
+    transform: translate(-50%, -50%);
+    box-shadow:
+      0 0 26px rgba(225, 50, 32, 0.86),
+      0 8px 16px rgba(0,0,0,0.48);
+    z-index: 3;
+    transition: left 120ms linear, top 120ms linear, opacity 120ms ease;
+  }
+
+  .ball.lost {
+    opacity: 0.25;
+  }
+
+  .status-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 11px;
+    min-height: 54px;
+    padding: 11px 12px;
+    border-radius: 15px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(190,128,65,0.32);
+  }
+
+  .status-text span {
+    display: block;
+    color: #c7a986;
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+
+  .status-text strong {
+    display: block;
+    color: #fff0d6;
+    font-size: 15px;
+  }
+
+  .slider-group {
+    margin-top: 18px;
+  }
+
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 15px;
+    color: #ead7bc;
+  }
+
+  .slider-label strong {
+    color: #f0b36d;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: #c7823f;
+  }
+
+  @media (max-width: 1180px) {
+    .layout {
+      grid-template-columns:
+        minmax(305px, 355px)
+        minmax(360px, 1fr)
+        minmax(220px, 260px);
+    }
+
+    .platform-card {
+      min-height: 430px;
+    }
+
+    .platform {
+      min-height: 390px;
+    }
+
+    .button {
+      min-height: 62px;
+    }
+  }
+
+  @media (max-width: 980px) {
+    .layout {
+      grid-template-columns: minmax(310px, 390px) 1fr;
+    }
+
+    .platform-panel {
+      order: 1;
+    }
+
+    .control-panel {
+      order: 2;
+    }
+
+    .right-panel {
+      order: 3;
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(250px, 0.8fr) minmax(330px, 1.2fr);
+    }
+
+    .error-box {
+      grid-column: 1 / -1;
+    }
+
+    .status-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .platform-card {
+      min-height: 390px;
+    }
+
+    .platform {
+      min-height: 350px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .header {
+      height: auto;
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .layout {
+      grid-template-columns: 1fr;
+    }
+
+    .platform-panel {
+      order: 1;
+    }
+
+    .control-panel {
+      order: 2;
+    }
+
+    .right-panel {
+      order: 3;
+      display: flex;
+    }
+
+    .status-list {
+      grid-template-columns: 1fr;
+    }
+
+    .platform-card {
+      min-height: 340px;
+    }
+
+    .platform {
+      min-height: 300px;
+    }
+  }
+
+  @media (max-width: 460px) {
+    .page {
+      padding: 10px;
+    }
+
+    .command-grid,
+    .routine-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .button {
+      width: 100%;
+    }
+
+    .restart-button,
+    .emergency-button {
+      grid-column: auto;
+    }
+  }
+`;
+
+export default App;
