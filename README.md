@@ -11,7 +11,6 @@ Este repositorio foi organizado em duas partes principais:
 * `docs/`: documentacao de arquitetura e operacao.
 
 Portfolio: [guilhermerds1921.github.io](https://guilhermerds1921.github.io/)
-Pagina do projeto: [Mesa Robotica de Equilibrio de Bola](https://guilhermerds1921.github.io/projects/ball-balancing-robot/)
 
 ## Objetivo
 
