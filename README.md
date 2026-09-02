@@ -2,7 +2,7 @@
 
 [![Ball Balancing Robot](https://github.com/GuilhermeRds1921/Ball-Balancing-Robot/blob/main/capa-mesa-equilibrio.png?raw=true)](https://github.com/GuilhermeRds1921/Ball-Balancing-Robot/blob/main/capa-mesa-equilibrio.png)
 
-Projeto de bancada robotica para equilibrar uma bola em uma mesa inclinavel usando visao computacional, controle e dashboard web.
+Projeto de bancada robotica para equilibrar uma bola em uma mesa inclinavel usando visao computacional, sistemas de controle e dashboard web.
 
 Este repositorio foi organizado em duas partes principais:
 
